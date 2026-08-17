@@ -1,0 +1,80 @@
+name: Process Public Samples
+
+# GHA runner for downloading + transcoding large publicsamples SFZ libraries.
+# Processes one repo per job, streaming extraction to fit in 14GB runner disk.
+#
+# Why a separate repo? web-daw-samples is private and its owner account
+# does not have GHA billing. This public repo on zmmac1 has free GHA minutes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo-name:
+        description: 'publicsamples repo name (e.g. Oberheim-Xpander-Miscellany)'
+        required: true
+        type: choice
+        options:
+          - Oberheim-Xpander-Miscellany
+          - Oberheim-Xpander-CK-Session-2
+          - Modular-Construction-Kit
+          - Roland-System-100-Construction-Kit
+      lib-id:
+        description: 'Library ID (e.g. oberheim-xpander-miscellany)'
+        required: true
+      opus-repo:
+        description: 'Opus repo name (e.g. adc-oxm)'
+        required: true
+      categories:
+        description: 'Categories to process (comma-separated, or "all")'
+        required: false
+        default: 'all'
+
+permissions:
+  contents: read
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg git python3-pip
+          pip3 install --break-system-packages requests
+      
+      - name: Check disk space
+        run: |
+          echo "=== Disk space ==="
+          df -h /
+          echo "=== Available space ==="
+          df -h / | awk 'NR==2{print $4}'
+      
+      - name: Process samples
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          ZMMAC_TOKEN: ${{ secrets.ZMMAC_TOKEN }}
+          REPO_NAME: ${{ inputs.repo-name }}
+          LIB_ID: ${{ inputs.lib-id }}
+          OPUS_REPO: ${{ inputs.opus-repo }}
+          CATEGORIES: ${{ inputs.categories }}
+        run: |
+          python3 scripts/process-samples.py \
+            --repo-name "$REPO_NAME" \
+            --lib-id "$LIB_ID" \
+            --opus-repo "$OPUS_REPO" \
+            --categories "$CATEGORIES"
+      
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{{ inputs.lib-id }}}-results
+          path: |
+            output/
+            *.log
+          retention-days: 7
