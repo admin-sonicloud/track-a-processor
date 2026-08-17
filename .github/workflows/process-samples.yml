@@ -73,7 +73,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{{ inputs.lib-id }}}-results
+          name: ${{ inputs.lib-id }}-results
           path: |
             output/
             *.log
