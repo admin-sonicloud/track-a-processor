@@ -52,9 +52,35 @@ def transcode_to_opus(wav_path, opus_path):
     )
     return r.returncode == 0 and opus_path.exists() and opus_path.stat().st_size > 200
 
+
+def ensure_repo_exists(repo_name, token):
+    """Create a GitHub repo if it doesn't exist."""
+    url = f"https://api.github.com/repos/{OWNER}/{repo_name}"
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "process-samples/1.0"}
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return True  # exists
+    except:
+        pass
+    # Create it
+    data = json.dumps({"name": repo_name, "description": "Opus 48k previews", "private": False, "auto_init": True}).encode()
+    headers2 = {**headers, "Content-Type": "application/json"}
+    req = urllib.request.Request("https://api.github.com/user/repos", method="POST", headers=headers2, data=data)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            print(f"  Created repo {repo_name}", flush=True)
+            return True
+    except Exception as e:
+        print(f"  Failed to create {repo_name}: {e}", flush=True)
+        return False
+
 def push_repo(repo_name, push_dir, commit_msg, token):
     """Push files to a GitHub repo using git."""
     GH_TOKEN = token
+    # Ensure repo exists
+    ensure_repo_exists(repo_name, token)
+    
     # Clone the repo (or init if empty)
     clone_dir = WORK / f"{repo_name}-clone"
     if clone_dir.exists():
