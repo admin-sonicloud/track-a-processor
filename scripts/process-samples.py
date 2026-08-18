@@ -29,7 +29,7 @@ def gh_api(url, token=None, method="GET", data=None):
         content = r.read()
         return json.loads(content) if content else {}
 
-def download_asset(url, dest, token=None, timeout=600):
+def download_asset(url, dest, token=None, timeout=6000):
     """Download a release asset."""
     headers = {"User-Agent": "process-samples/1.0", "Accept": "application/octet-stream"}
     if token:
@@ -48,7 +48,7 @@ def transcode_to_opus(wav_path, opus_path):
     """Transcode WAV/AIF → Opus 48k."""
     r = subprocess.run(
         ["ffmpeg", "-y", "-i", str(wav_path), "-c:a", "libopus", "-b:a", "48k", "-ar", "48000", "-vn", str(opus_path)],
-        capture_output=True, timeout=60
+        capture_output=True, timeout=600
     )
     return r.returncode == 0 and opus_path.exists() and opus_path.stat().st_size > 200
 
@@ -63,7 +63,7 @@ def push_repo(repo_name, push_dir, commit_msg, token):
     repo_url = f"https://{GH_TOKEN}@github.com/{OWNER}/{repo_name}.git"
     
     # Try cloning (may fail if empty)
-    r = subprocess.run(["git", "clone", "--depth", "1", repo_url, str(clone_dir)], capture_output=True, timeout=60)
+    r = subprocess.run(["git", "clone", "--depth", "1", repo_url, str(clone_dir)], capture_output=True, timeout=600)
     if r.returncode != 0:
         # Repo is empty — init locally
         clone_dir.mkdir(parents=True)
@@ -87,7 +87,7 @@ def push_repo(repo_name, push_dir, commit_msg, token):
     
     # Push
     for attempt in range(3):
-        r = subprocess.run(["git", "push", repo_url, "main"], cwd=clone_dir, capture_output=True, text=True, timeout=300)
+        r = subprocess.run(["git", "push", repo_url, "main"], cwd=clone_dir, capture_output=True, text=True, timeout=600)
         if r.returncode == 0:
             return True
         print(f"  push attempt {attempt+1} failed: {r.stderr[:200]}", flush=True)
@@ -101,7 +101,7 @@ def update_master_db(lib_id, lib_name, instruments, zones, opus_repo, token):
         shutil.rmtree(clone_dir)
     
     repo_url = f"https://{token}@github.com/{OWNER}/web-daw-samples.git"
-    subprocess.run(["git", "clone", "--depth", "1", repo_url, str(clone_dir)], capture_output=True, timeout=60)
+    subprocess.run(["git", "clone", "--depth", "1", repo_url, str(clone_dir)], capture_output=True, timeout=600)
     subprocess.run(["git", "config", "user.name", "zmmac1"], cwd=clone_dir, capture_output=True)
     subprocess.run(["git", "config", "user.email", "zmmac1@users.noreply.github.com"], cwd=clone_dir, capture_output=True)
     
@@ -147,7 +147,7 @@ def update_master_db(lib_id, lib_name, instruments, zones, opus_repo, token):
     subprocess.run(["git", "commit", "-m", f"feat: add {lib_id} ({instruments} inst, {zones} zones)"], cwd=clone_dir, capture_output=True, text=True)
     
     for attempt in range(3):
-        r = subprocess.run(["git", "push", repo_url, "main"], cwd=clone_dir, capture_output=True, text=True, timeout=60)
+        r = subprocess.run(["git", "push", repo_url, "main"], cwd=clone_dir, capture_output=True, text=True, timeout=600)
         if r.returncode == 0:
             print(f"  Updated master-db.json", flush=True)
             return True
@@ -226,7 +226,7 @@ def main():
         for asset in sorted(cat_assets, key=lambda a: a["name"]):
             dest = cat_dir / asset["name"]
             print(f"  Downloading {asset['name']} ({asset['size']/1024/1024:.1f} MB)...", flush=True)
-            if download_asset(asset["browser_download_url"], dest, token=GH_TOKEN, timeout=600):
+            if download_asset(asset["browser_download_url"], dest, token=GH_TOKEN, timeout=6000):
                 parts.append(dest)
         
         if not parts:
